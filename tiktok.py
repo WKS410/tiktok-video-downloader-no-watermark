@@ -1,33 +1,27 @@
+import logging
+import coloredlogs
 import requests
 import subprocess
 import os
 import argparse
-import requests
 from bs4 import BeautifulSoup
-from progress.bar import ShadyBar
+from tqdm import tqdm
 
+# Define service
+SERVICE = 'TIKTOK'
 
-arguments = argparse.ArgumentParser()
-arguments.add_argument("-id", '--id', dest="id_tiktok", help="Url Tiktok", required=True)
-args = arguments.parse_args()
+# Logger settings
+LOG_FORMAT = "%(asctime)s - [{level[0]}] - {service} - %(message)s".format(level="levelname", service=SERVICE)
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+coloredlogs.install(level='INFO', fmt=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
 
-id_tiktok = str(args.id_tiktok) 
-
-currentFile = __file__
-realPath = os.path.realpath(currentFile)
-dirPath = os.path.dirname(realPath)
-dirName = os.path.basename(dirPath)
-dir = dirPath
-
-aria2cexe = dirPath + '/aria2c.exe'
-
-By = ([f"By watora#1588 and -∞WKS∞-#3982"])
-print(f'{By}')
+# TikTok API Headers
 headers = {
     'Accept': '*/*',
     'Accept-Language': 'es-ES,es;q=0.9',
     'Connection': 'keep-alive',
-    'Content-Type': 'application/json; charset=UTF-8','Origin': 'https://www.tiktok.com',
+    'Content-Type': 'application/json; charset=UTF-8',
+    'Origin': 'https://www.tiktok.com',
     'Referer': 'https://www.tiktok.com/',
     'Sec-Fetch-Dest': 'empty',
     'Sec-Fetch-Mode': 'cors',
@@ -38,16 +32,34 @@ headers = {
     'sec-ch-ua-platform': '"Windows"',
 }
 
-HEADERSUWU = ([f"{headers}"])
-print(f'{HEADERSUWU}')
+class TikTokDownloader:
+    def __init__(self, video_id):
+        self.video_id = video_id
+        self.video_url = f"https://tikwm.com/video/media/hdplay/{video_id}.mp4"
 
-DOWNLOADING = ([f"[+] DOWNLOADING..."])
-print(f'{DOWNLOADING}')
-video_url = "https://tikwm.com/video/media/hdplay/" + id_tiktok + ".mp4"
-r = requests.head(video_url, allow_redirects=True)
-subprocess.run([aria2cexe,
-                r.url,
-                '-o', 
-                f"{id_tiktok}_TikTok.mp4"])
-DONE = ([f"[+] DONE"])
-print(f'{DONE}')
+    def download_video(self):
+        # Start downloading video
+        logging.info("Downloading video...")
+        r = requests.head(self.video_url, allow_redirects=True)
+        total_size = int(r.headers.get('content-length', 0))
+        block_size = 1024
+        t=tqdm(total=total_size, unit='iB', unit_scale=True)
+        with requests.get(self.video_url, stream=True) as r:
+            r.raise_for_status()
+            with open(f"{self.video_id}_TikTok.mp4", 'wb') as f:
+                for chunk in r.iter_content(chunk_size=block_size):
+                    if chunk:
+                        f.write(chunk)
+                        t.update(len(chunk))
+        t.close()
+        logging.info("Video downloaded successfully!")
+        
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-id", "--id", dest="id_tiktok", help="Url Tiktok", required=True)
+    args = parser.parse_args()
+    video_id = str(args.id_tiktok) 
+
+    downloader = TikTokDownloader(video_id)
+    downloader.download_video()
